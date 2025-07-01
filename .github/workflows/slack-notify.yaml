@@ -14,38 +14,6 @@ on:
         description: 'The Slack channel assigned to notify the outcome'
         required: true
         type: string
-      repository:
-        description: 'The originating repository (e.g., owner/repo-name)'
-        required: true
-        type: string
-      sha:
-        description: 'The SHA of the commit'
-        required: true
-        type: string
-      workflow_name:
-        description: 'The build workflow name'
-        required: true
-        type: string
-      workflow_url:
-        description: 'The URL of the workflow run'
-        required: true
-        type: string
-      workflow_run_attempt:
-        description: 'The number of attempts on this workflow run'
-        required: false
-        type: number
-      outcome: # Added outcome as a direct input for workflow_call
-        description: 'The outcome of the workflow (e.g., success, failure)'
-        required: true
-        type: string
-      notification_emoji: # Added emoji as a direct input for workflow_call
-        description: 'Emoji for notification (e.g., :white_check_mark:, :x:)'
-        required: false
-        type: string
-      notification_title: # Added title as a direct input for workflow_call
-        description: 'Custom notification title'
-        required: false
-        type: string
 
   workflow_dispatch: # <--- NEW: For manual testing
     inputs:
@@ -57,7 +25,7 @@ on:
 
 jobs:
   send-slack-notification:
-    runs-on: [self-hosted, ubuntu-22.04-x64, medium] # Using your self-hosted runner labels
+    runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
