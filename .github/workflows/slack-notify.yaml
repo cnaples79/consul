@@ -59,8 +59,9 @@ jobs:
                 webhook-type: incoming-webhook # <--- NEW: Specify the type of webhook
     
                  # Payload format might need adjustment for v2, depending on how SLACK_MESSAGE_RAW is structured
-                payload: |
-                    {
-                        "channel": "${{ env.SLACK_CHANNEL }}", # <--- Specify the channel here
-                        "text": "hi vikram, this is a test message from the workflow",
-                    }
+                slack-channel: ${{ env.SLACK_CHANNEL }} 
+    
+    # >>> THIS IS WHERE THE MESSAGE TEXT INPUT GOES <<<
+    # Assuming SLACK_MESSAGE_RAW contains plain text.
+    # If it contains Block Kit JSON, you'd use 'slack-blocks' instead.
+                slack-text: "hi vikram, this is a test message from the workflow"
