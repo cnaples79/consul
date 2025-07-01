@@ -44,39 +44,20 @@ jobs:
             echo "SLACK_CHANNEL=${{ inputs.slack_channel }}" >> $GITHUB_ENV
           elif [ -n "${{ github.event.client_payload.payload.slack_channel }}" ]; then
             echo "SLACK_CHANNEL=${{ github.event.client_payload.payload.slack_channel }}" >> $GITHUB_ENV
-          else
+          elif [ -n "${{ github.event.inputs.slack_channel }}" ]; then
             echo "SLACK_CHANNEL=${{ github.event.inputs.slack_channel }}" >> $GITHUB_ENV
+          else
+            echo "SLACK_CHANNEL=C093M9T79QB" >> $GITHUB_ENV
           fi
 
-          
-
-
-
-      # --- Vault-related steps (commented out for easier testing) ---
-      # You will need to uncomment and ensure these are correctly configured
-      # for your production environment to fetch the Slack token from Vault.
-      - name: Authenticate to Vault
-        id: vault-auth
-        run: vault-auth # This assumes 'vault-auth' is a command available on your runner
-
-      - name: Retrieve Vault-hosted Secrets
-        id: secrets
-        uses: hashicorp/vault-action@v3.4.0
-        with:
-           url: ${{ steps.vault-auth.outputs.addr }}
-           caCertificate: ${{ steps.vault-auth.outputs.ca_certificate }}
-           token: ${{ steps.vault-auth.outputs.token }}
-           secrets: |
-             kv/data/github/${{ github.repository }} slack_token
-      # ---------------------------------------------------------------
-
       - name: Send Slack Notification
-        uses: archive/github-actions-slack@c643e5093620d65506466f2c9b317d5d29a5e517 # v2.10.1
+        uses: archive/github-actions-slack@c643e5093620d65506466f2c9b317d5d29a5e517
         id: notify
         with:
-          # For testing, use a direct Slack webhook URL or a dummy token if you don't have Vault setup
-          # For production, uncomment Vault steps and use ${{ steps.secrets.outputs.slack_token }}
-          slack-bot-user-oauth-access-token: ${{ secrets.SLACK_BOT_TOKEN_FOR_TESTING }} # <--- REPLACE with your test token secret or webhook
+          slack-webhook-url: ${{ secrets.CONSUL_PROTECTED_BRANCH_TEST_SLACK_WEBHOOK }}
           slack-channel: ${{ env.SLACK_CHANNEL }}
           slack-text: |
-            hi vikram, here's the outcome of the workflow run:
+            Hi vikram,
+            The workflow has completed successfully.
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.CONSUL_PROTECTED_BRANCH_TEST_SLACK_WEBHOOK }}
