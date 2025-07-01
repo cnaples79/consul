@@ -1,6 +1,9 @@
 name: Notify Outcome (Slack)
 
 on:
+  push:
+    branches:
+      - vikram/*
   repository_dispatch:
     types:
       - notify-outcome
