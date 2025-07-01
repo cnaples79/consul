@@ -52,16 +52,10 @@ jobs:
 
       - name: Send Slack Notification
         id: notify
-        uses: slackapi/slack-github-action@v2.1.0 # <--- UPDATE VERSION TO v2.1.0 or higher
-        with:
-                # When using a webhook, you typically need to specify the webhook type
-                webhook: ${{ secrets.CONSUL_PROTECTED_BRANCH_TEST_SLACK_WEBHOOK }}
-                webhook-type: incoming-webhook # <--- NEW: Specify the type of webhook
-    
-                 # Payload format might need adjustment for v2, depending on how SLACK_MESSAGE_RAW is structured
-                slack-channel: ${{ env.SLACK_CHANNEL }} 
-    
-    # >>> THIS IS WHERE THE MESSAGE TEXT INPUT GOES <<<
-    # Assuming SLACK_MESSAGE_RAW contains plain text.
-    # If it contains Block Kit JSON, you'd use 'slack-blocks' instead.
-                slack-text: "hi vikram, this is a test message from the workflow"
+        uses: rtCamp/action-slack-notify@v2 # <--- UPDATE VERSION TO v2.1.0 or higher
+        env:
+            SLACK_CHANNEL: ${{ env.SLACK_CHANNEL }} # <--- Use the normalized channel from previous step
+            SLACK_MESSAGE: |
+                hi vikram, this is a test message from the workflow
+            SLACK_WEBHOOK: ${{ secrets.CONSUL_PROTECTED_BRANCH_TEST_SLACK_WEBHOOK }} # <--- Use the webhook secret
+        
