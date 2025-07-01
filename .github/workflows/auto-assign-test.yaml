@@ -24,7 +24,7 @@ jobs:
           # IMPORTANT: This token needs 'read:org' scope to list team members.
           # The default GITHUB_TOKEN typically does NOT have this.
           # You will likely need a Personal Access Token (PAT) stored as a secret.
-          GH_TOKEN: ${{ secrets.ORG_READ_PAT }} # <--- REPLACE with your PAT secret name
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # <--- REPLACE with your PAT secret name
         run: |
           CODEOWNERS_FILE=".github/CODEOWNERS"
 
