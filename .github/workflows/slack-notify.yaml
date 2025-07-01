@@ -21,7 +21,7 @@ on:
         description: 'Slack Channel (e.g., #my-test-channel)'
         required: true
         type: string
-        default: 'C093M9T79QB'
+        default: 'C093YQQKCJY'
 
 jobs:
   send-slack-notification:
