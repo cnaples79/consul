@@ -33,48 +33,60 @@ jobs:
             echo "owner=" >> $GITHUB_OUTPUT # Set owner to empty
             exit 0
           fi
-
+          
           # Extract all unique @usernames or @org/teams from CODEOWNERS
+          # Move comments to their own lines to avoid shell parsing issues
           VALID_ASSIGNEES=$(cat "$CODEOWNERS_FILE" | \
             grep -v '^#' | \
             grep -v '^\s*$' | \
             grep -oE '@[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)?' | \
             sort -u | \
-            grep -v 'dependabot\[bot\]' | \ # Exclude dependabot itself from being assigned
+            grep -v 'dependabot\[bot\]' | \
             tr '\n' ' ')
-
+          # Exclude dependabot itself from being assigned (comment moved to its own line)
+          
+          # DEBUG: Print the raw extracted assignees before array conversion
+          echo "DEBUG: Raw extracted assignees string: '$VALID_ASSIGNEES'"
+          
           # Convert to bash array
           IFS=' ' read -r -a ASSIGNEES_ARRAY <<< "$VALID_ASSIGNEES"
-
+          
+          # DEBUG: Print the array contents
+          echo "DEBUG: Assignees array size: ${#ASSIGNEES_ARRAY[@]}"
+          if [ ${#ASSIGNEES_ARRAY[@]} -gt 0 ]; then
+            echo "DEBUG: Assignees array elements:"
+            printf "  - %s\n" "${ASSIGNEES_ARRAY[@]}"
+          fi
+          
           # Pick a random assignee
           if [ ${#ASSIGNEES_ARRAY[@]} -eq 0 ]; then
             echo "No valid human/team owners found in .github/CODEOWNERS. Skipping assignment."
             echo "owner=" >> $GITHUB_OUTPUT # Ensure output is empty if no owners
             exit 0
           fi
-
+          
           SELECTED_ASSIGNEE=${ASSIGNEES_ARRAY[$RANDOM % ${#ASSIGNEES_ARRAY[@]}]}
           echo "Initial selection: $SELECTED_ASSIGNEE"
-
+          
           ASSIGN_TO_USER=""
-
+          
           # Check if the selected assignee is a team (contains '/')
           if [[ "$SELECTED_ASSIGNEE" == *"/"* ]]; then
             # It's a team (e.g., @org/team)
             ORG_SLUG=$(echo "$SELECTED_ASSIGNEE" | cut -d'/' -f1 | sed 's/@//')
             TEAM_SLUG=$(echo "$SELECTED_ASSIGNEE" | cut -d'/' -f2)
-
+          
             echo "Selected assignee is a team: $ORG_SLUG/$TEAM_SLUG. Fetching team members..."
-
+          
             # Use GitHub CLI to fetch team members
             # Requires GH_TOKEN with read:org scope (from secrets.ORG_READ_PAT)
             TEAM_MEMBERS_JSON=$(gh api "/orgs/$ORG_SLUG/teams/$TEAM_SLUG/members")
             
             # Extract login names (usernames) from JSON
             TEAM_MEMBER_LOGINS=$(echo "$TEAM_MEMBERS_JSON" | jq -r '.[].login' | tr '\n' ' ')
-
+          
             IFS=' ' read -r -a MEMBER_ARRAY <<< "$TEAM_MEMBER_LOGINS"
-
+          
             if [ ${#MEMBER_ARRAY[@]} -gt 0 ]; then
               # Pick one random member from the team
               ASSIGN_TO_USER=${MEMBER_ARRAY[$RANDOM % ${#MEMBER_ARRAY[@]}]}
@@ -88,7 +100,7 @@ jobs:
             ASSIGN_TO_USER=$(echo "$SELECTED_ASSIGNEE" | sed 's/@//') # Remove leading @
             echo "Selected assignee is an individual user: $ASSIGN_TO_USER"
           fi
-
+          
           echo "owner=$ASSIGN_TO_USER" >> $GITHUB_OUTPUT
 
       - name: Assign PR to random code owner using gh CLI
