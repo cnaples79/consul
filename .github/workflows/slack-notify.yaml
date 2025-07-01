@@ -51,13 +51,16 @@ jobs:
           fi
 
       - name: Send Slack Notification
-        uses: archive/github-actions-slack@c643e5093620d65506466f2c9b317d5d29a5e517
         id: notify
+        uses: slackapi/slack-github-action@v2.1.0 # <--- UPDATE VERSION TO v2.1.0 or higher
         with:
-          slack-webhook-url: ${{ secrets.CONSUL_PROTECTED_BRANCH_TEST_SLACK_WEBHOOK }}
-          slack-channel: ${{ env.SLACK_CHANNEL }}
-          slack-text: |
-            Hi vikram,
-            The workflow has completed successfully.
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.CONSUL_PROTECTED_BRANCH_TEST_SLACK_WEBHOOK }}
+                # When using a webhook, you typically need to specify the webhook type
+                webhook: ${{ secrets.CONSUL_PROTECTED_BRANCH_TEST_SLACK_WEBHOOK }}
+                webhook-type: incoming-webhook # <--- NEW: Specify the type of webhook
+    
+                 # Payload format might need adjustment for v2, depending on how SLACK_MESSAGE_RAW is structured
+                payload: |
+                    {
+                        "channel": "${{ env.SLACK_CHANNEL }}", # <--- Specify the channel here
+                        "text": "hi vikram, this is a test message from the workflow",
+                    }
