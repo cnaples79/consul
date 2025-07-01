@@ -1,0 +1,231 @@
+name: Notify Outcome (Slack)
+
+on:
+  repository_dispatch:
+    types:
+      - notify-outcome
+      - notify-outcome::*
+  workflow_call:
+    inputs:
+      slack_channel:
+        description: 'The Slack channel assigned to notify the outcome'
+        required: true
+        type: string
+      repository:
+        description: 'The originating repository (e.g., owner/repo-name)'
+        required: true
+        type: string
+      sha:
+        description: 'The SHA of the commit'
+        required: true
+        type: string
+      workflow_name:
+        description: 'The build workflow name'
+        required: true
+        type: string
+      workflow_url:
+        description: 'The URL of the workflow run'
+        required: true
+        type: string
+      workflow_run_attempt:
+        description: 'The number of attempts on this workflow run'
+        required: false
+        type: number
+      outcome: # Added outcome as a direct input for workflow_call
+        description: 'The outcome of the workflow (e.g., success, failure)'
+        required: true
+        type: string
+      notification_emoji: # Added emoji as a direct input for workflow_call
+        description: 'Emoji for notification (e.g., :white_check_mark:, :x:)'
+        required: false
+        type: string
+      notification_title: # Added title as a direct input for workflow_call
+        description: 'Custom notification title'
+        required: false
+        type: string
+
+  workflow_dispatch: # <--- NEW: For manual testing
+    inputs:
+      slack_channel:
+        description: 'Slack Channel (e.g., #my-test-channel)'
+        required: true
+        type: string
+      repository:
+        description: 'Repository (e.g., owner/repo-name)'
+        required: true
+        type: string
+      sha:
+        description: 'Commit SHA'
+        required: true
+        type: string
+      workflow_name:
+        description: 'Workflow Name'
+        required: true
+        type: string
+      workflow_url:
+        description: 'Workflow URL'
+        required: true
+        type: string
+      outcome:
+        description: 'Outcome (success, failure, cancelled, etc.)'
+        required: true
+        type: string
+        default: 'success'
+      workflow_run_attempt:
+        description: 'Run Attempt'
+        required: false
+        type: number
+        default: 1
+      custom_title: # Optional custom title for testing
+        description: 'Optional Custom Title'
+        required: false
+        type: string
+
+jobs:
+  send-slack-notification:
+    runs-on: [self-hosted, ubuntu-22.04-x64, medium] # Using your self-hosted runner labels
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      # Determine inputs source (workflow_call vs. workflow_dispatch vs. repository_dispatch)
+      # and normalize them into environment variables for easier access.
+      - name: Set Notification Variables
+        id: set_vars
+        run: |
+          # Prioritize workflow_call inputs, then workflow_dispatch inputs, then repository_dispatch client_payload
+          # This makes it flexible for different triggers
+
+          # Slack Channel
+          if [ -n "${{ inputs.slack_channel }}" ]; then
+            echo "SLACK_CHANNEL=${{ inputs.slack_channel }}" >> $GITHUB_ENV
+          elif [ -n "${{ github.event.client_payload.payload.slack_channel }}" ]; then
+            echo "SLACK_CHANNEL=${{ github.event.client_payload.payload.slack_channel }}" >> $GITHUB_ENV
+          else
+            echo "SLACK_CHANNEL=${{ github.event.inputs.slack_channel }}" >> $GITHUB_ENV
+          fi
+
+          # Repository
+          if [ -n "${{ inputs.repository }}" ]; then
+            echo "NOTIFY_REPO=${{ inputs.repository }}" >> $GITHUB_ENV
+          elif [ -n "${{ github.event.client_payload.payload.repo }}" ]; then
+            echo "NOTIFY_REPO=${{ github.event.client_payload.payload.repo }}" >> $GITHUB_ENV
+          else
+            echo "NOTIFY_REPO=${{ github.event.inputs.repository }}" >> $GITHUB_ENV
+          fi
+
+          # SHA
+          if [ -n "${{ inputs.sha }}" ]; then
+            echo "NOTIFY_SHA=${{ inputs.sha }}" >> $GITHUB_ENV
+          elif [ -n "${{ github.event.client_payload.payload.sha }}" ]; then
+            echo "NOTIFY_SHA=${{ github.event.client_payload.payload.sha }}" >> $GITHUB_ENV
+          else
+            echo "NOTIFY_SHA=${{ github.event.inputs.sha }}" >> $GITHUB_ENV
+          fi
+
+          # Workflow Name
+          if [ -n "${{ inputs.workflow_name }}" ]; then
+            echo "NOTIFY_WORKFLOW_NAME=${{ inputs.workflow_name }}" >> $GITHUB_ENV
+          elif [ -n "${{ github.event.client_payload.payload.workflow_name }}" ]; then
+            echo "NOTIFY_WORKFLOW_NAME=${{ github.event.client_payload.payload.workflow_name }}" >> $GITHUB_ENV
+          else
+            echo "NOTIFY_WORKFLOW_NAME=${{ github.event.inputs.workflow_name }}" >> $GITHUB_ENV
+          fi
+
+          # Workflow URL
+          if [ -n "${{ inputs.workflow_url }}" ]; then
+            echo "NOTIFY_WORKFLOW_URL=${{ inputs.workflow_url }}" >> $GITHUB_ENV
+          elif [ -n "${{ github.event.client_payload.payload.workflow_url }}" ]; then
+            echo "NOTIFY_WORKFLOW_URL=${{ github.event.client_payload.payload.workflow_url }}" >> $GITHUB_ENV
+          else
+            echo "NOTIFY_WORKFLOW_URL=${{ github.event.inputs.workflow_url }}" >> $GITHUB_ENV
+          fi
+
+          # Outcome
+          if [ -n "${{ inputs.outcome }}" ]; then
+            echo "NOTIFY_OUTCOME=${{ inputs.outcome }}" >> $GITHUB_ENV
+          elif [ -n "${{ github.event.client_payload.payload.outcome }}" ]; then
+            echo "NOTIFY_OUTCOME=${{ github.event.client_payload.payload.outcome }}" >> $GITHUB_ENV
+          else
+            echo "NOTIFY_OUTCOME=${{ github.event.inputs.outcome }}" >> $GITHUB_ENV
+          fi
+
+          # Workflow Run Attempt (optional)
+          if [ -n "${{ inputs.workflow_run_attempt }}" ]; then
+            echo "NOTIFY_TRIES=${{ inputs.workflow_run_attempt }}" >> $GITHUB_ENV
+          elif [ -n "${{ github.event.client_payload.payload.workflow_run_attempt }}" ]; then
+            echo "NOTIFY_TRIES=${{ github.event.client_payload.payload.workflow_run_attempt }}" >> $GITHUB_ENV
+          else
+            echo "NOTIFY_TRIES=${{ github.event.inputs.workflow_run_attempt }}" >> $GITHUB_ENV
+          fi
+
+          # Build notification title and emoji based on outcome
+          NOTIFICATION_EMOJI=""
+          NOTIFICATION_TITLE=""
+          
+          # Prioritize custom_title from workflow_dispatch if provided
+          if [ -n "${{ github.event.inputs.custom_title }}" ]; then
+            NOTIFICATION_TITLE="${{ github.event.inputs.custom_title }}"
+          elif [ -n "${{ inputs.notification_title }}" ]; then # Prioritize workflow_call notification_title
+            NOTIFICATION_TITLE="${{ inputs.notification_title }}"
+          else # Fallback to script logic
+            case "$NOTIFY_OUTCOME" in
+              "success")
+                NOTIFICATION_EMOJI=":white_check_mark:"
+                NOTIFICATION_TITLE="Workflow Succeeded"
+                ;;
+              "failure")
+                NOTIFICATION_EMOJI=":x:"
+                NOTIFICATION_TITLE="Workflow Failed"
+                ;;
+              "cancelled")
+                NOTIFICATION_EMOJI=":no_entry_sign:"
+                NOTIFICATION_TITLE="Workflow Cancelled"
+                ;;
+              *)
+                NOTIFICATION_EMOJI=":information_source:"
+                NOTIFICATION_TITLE="Workflow Outcome: $NOTIFY_OUTCOME"
+                ;;
+            esac
+            if [ -n "$NOTIFY_TRIES" ] && [ "$NOTIFY_TRIES" -gt 1 ]; then
+              NOTIFICATION_TITLE="$NOTIFICATION_TITLE (Attempt $NOTIFY_TRIES)"
+            fi
+          fi
+
+          echo "NOTIFICATION_EMOJI=$NOTIFICATION_EMOJI" >> $GITHUB_ENV
+          echo "NOTIFICATION_TITLE=$NOTIFICATION_TITLE" >> $GITHUB_ENV
+
+
+      # --- Vault-related steps (commented out for easier testing) ---
+      # You will need to uncomment and ensure these are correctly configured
+      # for your production environment to fetch the Slack token from Vault.
+      # - name: Authenticate to Vault
+      #   id: vault-auth
+      #   run: vault-auth # This assumes 'vault-auth' is a command available on your runner
+
+      # - name: Retrieve Vault-hosted Secrets
+      #   id: secrets
+      #   uses: hashicorp/vault-action@v3.4.0
+      #   with:
+      #     url: ${{ steps.vault-auth.outputs.addr }}
+      #     caCertificate: ${{ steps.vault-auth.outputs.ca_certificate }}
+      #     token: ${{ steps.vault-auth.outputs.token }}
+      #     secrets: |
+      #       kv/data/github/${{ github.repository }} slack_token
+      # ---------------------------------------------------------------
+
+      - name: Send Slack Notification
+        uses: archive/github-actions-slack@c643e5093620d65506466f2c9b317d5d29a5e517 # v2.10.1
+        id: notify
+        with:
+          # For testing, use a direct Slack webhook URL or a dummy token if you don't have Vault setup
+          # For production, uncomment Vault steps and use ${{ steps.secrets.outputs.slack_token }}
+          slack-bot-user-oauth-access-token: ${{ secrets.SLACK_BOT_TOKEN_FOR_TESTING }} # <--- REPLACE with your test token secret or webhook
+          slack-channel: ${{ env.SLACK_CHANNEL }}
+          slack-text: |
+            ${{ env.NOTIFICATION_EMOJI }} *${{ env.NOTIFICATION_TITLE }}*
+            *Repo:* `${{ env.NOTIFY_REPO }}`
+            *SHA:* `${{ env.NOTIFY_SHA }}`
+            *Workflow:* `${{ env.NOTIFY_WORKFLOW_NAME }}`
+            *URL:* <${{ env.NOTIFY_WORKFLOW_URL }}|View Run>
