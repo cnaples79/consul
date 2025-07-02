@@ -52,10 +52,12 @@ jobs:
 
       - name: Send Slack Notification
         id: notify
-        uses: rtCamp/action-slack-notify@v2 # <--- UPDATE VERSION TO v2.1.0 or higher
+        uses: slackapi/slack-github-action@70cd7be8e40a46e8b0eced40b0de447bdb42f68e # v1.26.0
+        with:
+          payload: |
+            {
+              "message": "Hi Vikram, this is a test notification from the Consul workflow.",
+            }
         env:
-            SLACK_CHANNEL: ${{ env.SLACK_CHANNEL }} # <--- Use the normalized channel from previous step
-            SLACK_MESSAGE: |
-                hi vikram, this is a test message from the workflow
-            SLACK_WEBHOOK: ${{ secrets.CONSUL_PROTECTED_BRANCH_TEST_SLACK_WEBHOOK }} # <--- Use the webhook secret
+          SLACK_WEBHOOK_URL: ${{ secrets.CONSUL_PROTECTED_BRANCH_TEST_SLACK_WEBHOOK }}
         
