@@ -47,7 +47,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
           # Check if there are any changes (staged or unstaged)
-          if git status --porcelain | grep -E '^(M|A|D| R|C)'; then
+          if git status --porcelain | grep -E '^[ M?ADRC]'; then
             echo "Changes detected after 'make go-mod-tidy'. Committing..."
             git add -A # Adds all modified, added, deleted files recursively
             git commit -m "chore: go mod tidy changes from Dependabot update"
